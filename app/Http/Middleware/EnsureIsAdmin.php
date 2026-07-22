@@ -11,11 +11,11 @@ class EnsureIsAdmin
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if (!Auth::check()) {
+        if (! Auth::check()) {
             return redirect('/login');
         }
 
-        if (!Auth::user()->es_admin) {
+        if (! Auth::user()->es_admin) {
             abort(403, 'No tienes permisos de administrador.');
         }
 

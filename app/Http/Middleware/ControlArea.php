@@ -11,8 +11,20 @@ class ControlArea
 {
     public function handle(Request $request, Closure $next, string $areaRequerida): Response
     {
-        if (!Auth::check()) {
+        if (! Auth::check()) {
             return redirect('/login');
+        }
+
+        // Los administradores ven el consolidado de todas las áreas (igual que en
+        // VisitaController::autorizar() y en VisitaConsultas::datosReporte()).
+        if (Auth::user()->es_admin) {
+            return $next($request);
+        }
+
+        // 'acceso_vinculacion' es un permiso aparte del área asignada: deja
+        // entrar a /vinculacion/* aunque el área principal del usuario sea otra.
+        if ($areaRequerida === 'vinculacion' && Auth::user()->acceso_vinculacion) {
+            return $next($request);
         }
 
         if (Auth::user()->area !== $areaRequerida) {

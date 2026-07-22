@@ -6,6 +6,7 @@
         'hospital' => 'Hospital',
         'consultorios' => 'Torre de Consultorios',
         'cafeteria' => 'Cafetería',
+        'vinculacion' => 'Vinculación',
     ];
 @endphp
 
@@ -67,7 +68,17 @@
                 <label class="flex items-center gap-3 text-sm text-slate-300">
                     <input type="checkbox" name="acceso_reportes" value="1" {{ old('acceso_reportes', $usuario->acceso_reportes) ? 'checked' : '' }}
                            class="h-4 w-4 rounded border-white/20 bg-white/5 text-[#4978eb] focus:ring-[#4978eb]/40" />
-                    Permitir acceso a Reportes
+                    Permitir acceso a reportes
+                </label>
+                <label class="flex items-center gap-3 text-sm text-slate-300">
+                    <input type="checkbox" name="acceso_vinculacion" value="1" {{ old('acceso_vinculacion', $usuario->acceso_vinculacion) ? 'checked' : '' }}
+                           class="h-4 w-4 rounded border-white/20 bg-white/5 text-[#4978eb] focus:ring-[#4978eb]/40" />
+                    Permitir acceso a cortesias
+                </label>
+                <label class="flex items-center gap-3 text-sm text-slate-300">
+                    <input type="checkbox" name="es_admin_cafeteria" value="1" {{ old('es_admin_cafeteria', $usuario->es_admin_cafeteria) ? 'checked' : '' }}
+                           class="h-4 w-4 rounded border-white/20 bg-white/5 text-[#4978eb] focus:ring-[#4978eb]/40" />
+                    Permitir ver el resumen de Cafetería (solo lectura)
                 </label>
             </div>
 

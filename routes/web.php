@@ -1,25 +1,34 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
+use App\Http\Controllers\BitacoraController;
+use App\Http\Controllers\CafeteriaResumenController;
+use App\Http\Controllers\CatalogoController;
+use App\Http\Controllers\ComidaController;
+use App\Http\Controllers\ConsultorioMedicoController;
+use App\Http\Controllers\MenuController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\VisitaController;
+use App\Support\VisitaConsultas;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Route;
 
 // 1. Redirección de la raíz al login de forma directa por URL
 Route::get('/', function () {
     if (Auth::check()) {
-        return redirect('/' . Auth::user()->area . '/dashboard');
+        return redirect('/'.Auth::user()->area.'/dashboard');
     }
 
     return redirect('/login');
-});
+})->name('home');
 
 // 2. Formulario de Login
 Route::get('/login', function () {
     // Si ya hay sesión activa, no debe poder "regresar" al login y quedarse ahí:
     // se manda directo a su dashboard en vez de mostrar el formulario de nuevo.
     if (Auth::check()) {
-        return redirect('/' . Auth::user()->area . '/dashboard');
+        return redirect('/'.Auth::user()->area.'/dashboard');
     }
 
     return view('auth.login');
@@ -34,220 +43,187 @@ Route::post('/login', function (Request $request) {
 
     if (Auth::attempt($credentials)) {
         $request->session()->regenerate();
+
         // Esto mandará a /hospital/dashboard, /consultorios/dashboard o /cafeteria/dashboard
-        return redirect()->intended(Auth::user()->area . '/dashboard');
+        return redirect()->intended(Auth::user()->area.'/dashboard');
     }
 
     return back()->withErrors(['email' => 'Credenciales incorrectas.']);
-});
+})->middleware('throttle:login');
 
 Route::post('/logout', function (Request $request) {
     Auth::logout();
     $request->session()->invalidate();
     $request->session()->regenerateToken();
+
     return redirect('/login');
-});
-
-// --- FUNCIÓN HELPER PARA OBTENER LAS VISITAS SEGÚN FILTROS ---
-// 'visita.tipo_visitante' no es confiable (el sistema real solo guarda "visitante" ahí);
-// el tipo real se deduce por edificio y por cuál tabla hija tiene los datos de esa visita.
-// Todo lo que es id_edificio=2 se trata como 'rep-medico' SIN mirar las demás tablas, para
-// blindarnos de filas huérfanas/duplicadas que puedan quedar por error en otra tabla hija.
-function obtenerVisitasPorArea($tipoFiltro, $valorFiltro) {
-    $query = DB::table('visita')
-        ->leftJoin('visita_familiar', 'visita.id_visita', '=', 'visita_familiar.id_visita')
-        ->leftJoin('visita_proveedor', 'visita.id_visita', '=', 'visita_proveedor.id_visita')
-        ->leftJoin('visita_postulante', 'visita.id_visita', '=', 'visita_postulante.id_visita')
-        ->leftJoin('visita_torre', 'visita.id_visita', '=', 'visita_torre.id_visita')
-        ->select(
-            'visita.id_visita', 'visita.fecha_entrada', 'visita.fecha_salida', 'visita.estado', 'visita.id_edificio',
-            DB::raw("
-                CASE
-                    WHEN visita.id_edificio = 2 THEN 'rep-medico'
-                    WHEN visita_postulante.puesto IS NOT NULL THEN 'postulante'
-                    WHEN visita_proveedor.area_destino IS NOT NULL THEN 'proveedor'
-                    WHEN visita_familiar.habitacion IS NOT NULL THEN 'familiar'
-                    ELSE 'sin-datos'
-                END AS tipo_real
-            "),
-            DB::raw("CASE WHEN visita.id_edificio = 2 THEN visita_torre.nombre ELSE COALESCE(visita_familiar.nombre, visita_proveedor.nombre, visita_postulante.nombre) END AS nombre_visitante"),
-            DB::raw("CASE WHEN visita.id_edificio = 2 THEN visita_torre.folio ELSE COALESCE(visita_familiar.folio, visita_proveedor.folio, visita_postulante.folio) END AS folio"),
-            DB::raw("CASE WHEN visita.id_edificio = 2 THEN visita_torre.foto_persona ELSE COALESCE(visita_familiar.foto_persona, visita_proveedor.foto_persona, visita_postulante.foto_persona) END AS foto_persona"),
-            DB::raw("CASE WHEN visita.id_edificio = 2 THEN visita_torre.piso ELSE COALESCE(visita_proveedor.piso_destino, visita_familiar.piso) END AS piso_general"),
-            DB::raw("CASE WHEN visita.id_edificio = 2 THEN visita_torre.consultorio ELSE COALESCE(visita_postulante.puesto, visita_proveedor.area_destino, visita_familiar.habitacion) END AS detalle"),
-            'visita_proveedor.area_destino'
-        );
-
-    if ($tipoFiltro === 'edificio') {
-        $query->where('visita.id_edificio', $valorFiltro);
-    } elseif ($tipoFiltro === 'cafeteria') {
-        $query->where('visita_proveedor.area_destino', '=', 'CAFETERÍA');
-    }
-
-    return $query->orderBy('visita.fecha_entrada', 'desc')->get();
-}
+})->name('logout');
 
 // --- RUTAS PROTEGIDAS POR MIDDLEWARE ---
 Route::middleware(['auth'])->group(function () {
 
     // 1. HOSPITAL (id_edificio = 1)
-    Route::middleware(['area:hospital'])->get('/hospital/dashboard', function () {
-        $visitas = obtenerVisitasPorArea('edificio', 1);
-        $areaNombre = "Hospital Central";
-        return view('dashboard_area', compact('visitas', 'areaNombre'));
+    Route::middleware(['area:hospital'])->get('/hospital/dashboard', function (Request $request) {
+        $soloActivas = $request->query('estado') !== 'todas';
+        $visitas = VisitaConsultas::porArea('edificio', 1, $soloActivas);
+        $areaNombre = 'Hospital Central';
+
+        return view('dashboard_area', compact('visitas', 'areaNombre', 'soloActivas'));
     });
 
     // 2. TORRE DE CONSULTORIOS (id_edificio = 2)
-    Route::middleware(['area:consultorios'])->get('/consultorios/dashboard', function () {
-        $visitas = obtenerVisitasPorArea('edificio', 2);
-        $areaNombre = "Torre de Consultorios";
-        return view('dashboard_area', compact('visitas', 'areaNombre'));
+    Route::middleware(['area:consultorios'])->get('/consultorios/dashboard', function (Request $request) {
+        $soloActivas = $request->query('estado') !== 'todas';
+        $visitas = VisitaConsultas::porArea('edificio', 2, $soloActivas);
+        $areaNombre = 'Torre de Consultorios';
+
+        return view('dashboard_area', compact('visitas', 'areaNombre', 'soloActivas'));
     });
 
     // 3. CAFETERÍA (area_destino = 'CAFETERÍA')
-    Route::middleware(['area:cafeteria'])->get('/cafeteria/dashboard', function () {
-        $visitas = obtenerVisitasPorArea('cafeteria', null);
-        $areaNombre = "Zona de Cafetería";
-        return view('dashboard_area', compact('visitas', 'areaNombre'));
+    Route::middleware(['area:cafeteria'])->get('/cafeteria/dashboard', function (Request $request) {
+        $soloActivas = $request->query('estado') !== 'todas';
+        $visitas = VisitaConsultas::porArea('cafeteria', null, $soloActivas);
+        $areaNombre = 'Zona de Cafetería';
+
+        return view('dashboard_area', compact('visitas', 'areaNombre', 'soloActivas'));
+    });
+
+    // 4. VINCULACIÓN (elige desayuno/cena/bebida por habitación activa, y edita el menú semanal)
+    Route::middleware(['area:vinculacion'])->group(function () {
+        Route::get('/vinculacion/dashboard', [ComidaController::class, 'index']);
+        Route::post('/vinculacion/habitaciones', [ComidaController::class, 'store']);
+        Route::put('/vinculacion/habitaciones/comida', [ComidaController::class, 'update']);
+        Route::delete('/vinculacion/habitaciones/comida', [ComidaController::class, 'destroy']);
+        Route::get('/vinculacion/menus', [MenuController::class, 'edit']);
+        Route::put('/vinculacion/menus', [MenuController::class, 'update']);
     });
 
     // Redirección de auxilio por si entran a /dashboard o /dashboard_area a secas
     Route::get('/dashboard', function () {
-        return redirect('/' . Auth::user()->area . '/dashboard');
-    });
+        return redirect('/'.Auth::user()->area.'/dashboard');
+    })->name('dashboard');
     Route::get('/dashboard_area', function () {
-        return redirect('/' . Auth::user()->area . '/dashboard');
+        return redirect('/'.Auth::user()->area.'/dashboard');
     });
 
     // Edición y eliminación de registros de visita (la autorización por área se valida dentro del controlador)
-    Route::get('/visitas/{id}/editar', [App\Http\Controllers\VisitaController::class, 'edit']);
-    Route::put('/visitas/{id}', [App\Http\Controllers\VisitaController::class, 'update']);
-    Route::delete('/visitas/{id}', [App\Http\Controllers\VisitaController::class, 'destroy']);
+    Route::get('/visitas/{id}/editar', [VisitaController::class, 'edit']);
+    Route::put('/visitas/{id}', [VisitaController::class, 'update']);
+    Route::delete('/visitas/{id}', [VisitaController::class, 'destroy']);
 });
 
 // --- GESTIÓN DE USUARIOS (solo administradores) ---
 Route::middleware(['auth', 'admin'])->group(function () {
-    Route::get('/usuarios', [App\Http\Controllers\UserController::class, 'index']);
-    Route::post('/usuarios', [App\Http\Controllers\UserController::class, 'store']);
-    Route::get('/usuarios/{id}/editar', [App\Http\Controllers\UserController::class, 'edit']);
-    Route::put('/usuarios/{id}', [App\Http\Controllers\UserController::class, 'update']);
-    Route::delete('/usuarios/{id}', [App\Http\Controllers\UserController::class, 'destroy']);
+    Route::get('/bitacora', [BitacoraController::class, 'index']);
+    Route::get('/usuarios', [UserController::class, 'index']);
+    Route::post('/usuarios', [UserController::class, 'store']);
+    Route::get('/usuarios/{id}/editar', [UserController::class, 'edit']);
+    Route::put('/usuarios/{id}', [UserController::class, 'update']);
+    Route::delete('/usuarios/{id}', [UserController::class, 'destroy']);
+
+    Route::get('/catalogos', [CatalogoController::class, 'index']);
+    Route::post('/catalogos/habitaciones', [CatalogoController::class, 'storeHabitacion']);
+    Route::put('/catalogos/habitaciones/{id}', [CatalogoController::class, 'updateHabitacion']);
+    Route::delete('/catalogos/habitaciones/{id}', [CatalogoController::class, 'destroyHabitacion']);
+    Route::post('/catalogos/areas', [CatalogoController::class, 'storeArea']);
+    Route::put('/catalogos/areas/{id}', [CatalogoController::class, 'updateArea']);
+    Route::delete('/catalogos/areas/{id}', [CatalogoController::class, 'destroyArea']);
+
+    Route::get('/medicos', [ConsultorioMedicoController::class, 'index']);
+    Route::post('/medicos', [ConsultorioMedicoController::class, 'store']);
+    Route::put('/medicos/{id}', [ConsultorioMedicoController::class, 'update']);
+    Route::delete('/medicos/{id}', [ConsultorioMedicoController::class, 'destroy']);
 });
+
+// --- RESUMEN DE CAFETERÍA (administradores generales o de cafetería) ---
+Route::middleware(['auth', 'admin.cafeteria'])->get('/cafeteria/resumen', [CafeteriaResumenController::class, 'index']);
 
 // --- REPORTES GRÁFICOS ---
 Route::middleware(['auth'])->get('/reportes-graficos', function (Request $request) {
     $usuario = Auth::user();
 
-    if (!$usuario->acceso_reportes) {
+    if (! $usuario->acceso_reportes) {
         abort(403, 'No tienes acceso a los reportes.');
     }
 
-    // Periodo del reporte: día, semana, mes o todo el historial.
-    $periodo = in_array($request->query('periodo'), ['dia', 'semana', 'mes', 'todo'], true)
-        ? $request->query('periodo')
-        : 'mes';
+    $datos = VisitaConsultas::datosReporte($usuario, $request->query('periodo'));
 
-    $rangoFechas = match ($periodo) {
-        'dia' => [now()->startOfDay(), now()->endOfDay()],
-        'semana' => [now()->startOfWeek(), now()->endOfWeek()],
-        'mes' => [now()->startOfMonth(), now()->endOfMonth()],
-        default => null, // 'todo' = sin filtro de fecha
+    return view('reportes.graficos', $datos);
+});
+
+// --- REPORTE EN PDF (mismos datos y filtros que la vista de reportes gráficos) ---
+Route::middleware(['auth'])->get('/reportes-graficos/pdf', function (Request $request) {
+    $usuario = Auth::user();
+
+    if (! $usuario->acceso_reportes) {
+        abort(403, 'No tienes acceso a los reportes.');
+    }
+
+    $datos = VisitaConsultas::datosReporte($usuario, $request->query('periodo'));
+    $datos['generadoPor'] = $usuario->name;
+    $datos['generadoEn'] = now();
+
+    $limiteDetallePdf = 300;
+    $datos['detalleVisitasTotal'] = $datos['detalleVisitas']->count();
+    $datos['detalleVisitas'] = $datos['detalleVisitas']->take($limiteDetallePdf);
+
+
+    ini_set('memory_limit', '512M');
+
+    $nombreArchivo = 'reporte-visitas-'.$datos['periodo'].'-'.now()->format('Y-m-d').'.pdf';
+
+    return Pdf::loadView('reportes.pdf', $datos)
+        ->setPaper('letter')
+        ->download($nombreArchivo);
+});
+
+Route::middleware(['auth'])->get('/reportes-graficos/csv', function (Request $request) {
+    $usuario = Auth::user();
+
+    if (! $usuario->acceso_reportes) {
+        abort(403, 'No tienes acceso a los reportes.');
+    }
+
+    $datos = VisitaConsultas::datosReporte($usuario, $request->query('periodo'));
+    $nombreArchivo = 'reporte-visitas-'.$datos['periodo'].'-'.now()->format('Y-m-d').'.csv';
+
+    $etiquetaTipo = fn ($t) => match ($t) {
+        'sin-datos' => 'Sin datos',
+        'ex_empleado' => 'Ex empleado',
+        default => ucfirst($t),
     };
 
-    $filtrarPeriodo = function ($query) use ($rangoFechas) {
-        if ($rangoFechas) {
-            $query->whereBetween('visita.fecha_entrada', $rangoFechas);
+    $csvSeguro = function ($valor) {
+        if (! is_string($valor) || $valor === '') {
+            return $valor;
         }
+
+        return preg_match('/^[=+\-@]/', $valor) ? "'".$valor : $valor;
     };
 
-    // Los administradores ven el consolidado de todas las áreas;
-    // el resto solo ve las visitas de su propia área asignada.
-    // $conJoinProveedor debe ser false cuando la consulta no une 'visita_proveedor'
-    // (p. ej. el desglose de familiares), para no referenciar una tabla ausente.
-    $filtrarPorArea = function ($query, $conJoinProveedor = true) use ($usuario) {
-        if ($usuario->es_admin) {
-            return;
+    $csvTexto = fn (string $valor) => "'".$valor;
+
+    return response()->streamDownload(function () use ($datos, $etiquetaTipo, $csvSeguro, $csvTexto) {
+        $salida = fopen('php://output', 'w');
+        // BOM UTF-8 para que Excel abra los acentos correctamente.
+        fwrite($salida, "\xEF\xBB\xBF");
+        fputcsv($salida, ['Folio', 'Nombre', 'Tipo', 'Edificio', 'Detalle', 'Piso', 'Entrada', 'Salida', 'Estado']);
+
+        foreach ($datos['detalleVisitas'] as $visita) {
+            fputcsv($salida, [
+                $csvSeguro($visita->folio ?? 'N/A'),
+                $csvSeguro($visita->nombre_visitante ?? 'N/A'),
+                $etiquetaTipo($visita->tipo_visitante),
+                $visita->edificio,
+                $csvSeguro($visita->detalle ?? 'N/A'),
+                $visita->piso ?? '—',
+                $visita->fecha_entrada ? $csvTexto(date('d/m/Y H:i', strtotime($visita->fecha_entrada))) : 'N/A',
+                $visita->fecha_salida ? $csvTexto(date('d/m/Y H:i', strtotime($visita->fecha_salida))) : ($visita->estado === 'activa' ? 'En curso' : 'N/A'),
+                $visita->estado,
+            ]);
         }
 
-        if ($usuario->area === 'hospital') {
-            $query->where('visita.id_edificio', 1);
-        } elseif ($usuario->area === 'consultorios') {
-            $query->where('visita.id_edificio', 2);
-        } elseif ($usuario->area === 'cafeteria') {
-            // El personal de cafetería solo gestiona visitas de proveedor; nunca ve familiares.
-            $conJoinProveedor
-                ? $query->where('visita_proveedor.area_destino', '=', 'CAFETERÍA')
-                : $query->whereRaw('1 = 0');
-        }
-    };
-
-    $porEdificioQuery = DB::table('visita')
-        ->leftJoin('visita_proveedor', 'visita.id_visita', '=', 'visita_proveedor.id_visita')
-        ->select(
-            DB::raw("CASE WHEN visita.id_edificio = 1 THEN 'Hospital' ELSE 'Torre de Consultorios' END as edificio"),
-            DB::raw("COUNT(DISTINCT visita.id_visita) as total")
-        )
-        ->groupBy('visita.id_edificio');
-    $filtrarPorArea($porEdificioQuery);
-    $filtrarPeriodo($porEdificioQuery);
-    $porEdificio = $porEdificioQuery->get();
-
-    // 'visita.tipo_visitante' no es confiable (ver nota en obtenerVisitasPorArea);
-    // el tipo real se deduce por edificio y por cuál tabla hija tiene los datos.
-    // El servidor real corre con sql_mode=only_full_group_by, así que hay que agrupar
-    // por la expresión CASE completa (no por su alias) para que MySQL la acepte.
-    $expresionTipoReal = "
-        CASE
-            WHEN visita.id_edificio = 2 THEN 'rep-medico'
-            WHEN visita_postulante.puesto IS NOT NULL THEN 'postulante'
-            WHEN visita_proveedor.area_destino IS NOT NULL THEN 'proveedor'
-            WHEN visita_familiar.habitacion IS NOT NULL THEN 'familiar'
-            ELSE 'sin-datos'
-        END
-    ";
-
-    $porTipoQuery = DB::table('visita')
-        ->leftJoin('visita_proveedor', 'visita.id_visita', '=', 'visita_proveedor.id_visita')
-        ->leftJoin('visita_postulante', 'visita.id_visita', '=', 'visita_postulante.id_visita')
-        ->leftJoin('visita_familiar', 'visita.id_visita', '=', 'visita_familiar.id_visita')
-        ->select(
-            DB::raw($expresionTipoReal . ' AS tipo_visitante'),
-            DB::raw('COUNT(DISTINCT visita.id_visita) as total')
-        )
-        ->groupByRaw($expresionTipoReal);
-    $filtrarPorArea($porTipoQuery);
-    $filtrarPeriodo($porTipoQuery);
-    $porTipo = $porTipoQuery->get();
-
-    $ordenPisos = array_flip(['Sótano', 'Planta Baja', 'Piso 1', 'Piso 2', 'Piso 3', 'Piso 4']);
-    $ordenarPorPiso = fn ($coleccion) => $coleccion->sortBy(fn ($fila) => $ordenPisos[$fila->piso] ?? 99)->values();
-
-    $porPisoProveedorQuery = DB::table('visita')
-        ->join('visita_proveedor', 'visita.id_visita', '=', 'visita_proveedor.id_visita')
-        ->whereNotNull('visita_proveedor.piso_destino')
-        ->select('visita_proveedor.piso_destino as piso', DB::raw('COUNT(DISTINCT visita.id_visita) as total'))
-        ->groupBy('visita_proveedor.piso_destino');
-    $filtrarPorArea($porPisoProveedorQuery);
-    $filtrarPeriodo($porPisoProveedorQuery);
-    $porPisoProveedor = $ordenarPorPiso($porPisoProveedorQuery->get());
-
-    $porPisoFamiliarQuery = DB::table('visita')
-        ->join('visita_familiar', 'visita.id_visita', '=', 'visita_familiar.id_visita')
-        ->whereNotNull('visita_familiar.piso')
-        ->select('visita_familiar.piso as piso', DB::raw('COUNT(DISTINCT visita.id_visita) as total'))
-        ->groupBy('visita_familiar.piso');
-    $filtrarPorArea($porPisoFamiliarQuery, false);
-    $filtrarPeriodo($porPisoFamiliarQuery);
-    $porPisoFamiliar = $ordenarPorPiso($porPisoFamiliarQuery->get());
-
-    $porPisoTorreQuery = DB::table('visita')
-        ->join('visita_torre', 'visita.id_visita', '=', 'visita_torre.id_visita')
-        ->whereNotNull('visita_torre.piso')
-        ->select('visita_torre.piso as piso', DB::raw('COUNT(DISTINCT visita.id_visita) as total'))
-        ->groupBy('visita_torre.piso');
-    $filtrarPorArea($porPisoTorreQuery, false);
-    $filtrarPeriodo($porPisoTorreQuery);
-    $porPisoTorre = $ordenarPorPiso($porPisoTorreQuery->get());
-
-    return view('reportes.graficos', compact('porEdificio', 'porTipo', 'porPisoProveedor', 'porPisoFamiliar', 'porPisoTorre', 'periodo'));
+        fclose($salida);
+    }, $nombreArchivo, ['Content-Type' => 'text/csv']);
 });

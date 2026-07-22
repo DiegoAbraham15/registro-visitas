@@ -1,7 +1,11 @@
 <?php
 
+use App\Http\Middleware\ControlArea;
+use App\Http\Middleware\EnsureAdminCafeteria;
+use App\Http\Middleware\EnsureIsAdmin;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\PreventBackHistoryCache;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -21,12 +25,13 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleAppearance::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
-            \App\Http\Middleware\PreventBackHistoryCache::class,
+            PreventBackHistoryCache::class,
         ]);
 
         $middleware->alias([
-            'area' => \App\Http\Middleware\ControlArea::class,
-            'admin' => \App\Http\Middleware\EnsureIsAdmin::class,
+            'area' => ControlArea::class,
+            'admin' => EnsureIsAdmin::class,
+            'admin.cafeteria' => EnsureAdminCafeteria::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

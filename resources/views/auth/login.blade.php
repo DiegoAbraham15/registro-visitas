@@ -20,10 +20,8 @@
                 <div class="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_top_right,_rgba(255,255,255,0.25),_transparent_25%),radial-gradient(circle_at_bottom_left,_rgba(255,255,255,0.12),_transparent_20%)]"></div>
                 <div class="relative z-10 flex h-full flex-col justify-between">
                     <div>
-                        <div class="inline-flex items-center gap-3 rounded-3xl bg-white/10 px-4 py-2 mb-8 border border-white/15">
-                            <span class="text-sm uppercase tracking-[0.4em] font-semibold">Médica</span>
-                            <span class="text-2xl font-black tracking-tighter text-slate-100">MIA</span>
-                            <span class="h-2 w-12 rounded-full bg-red-600 shadow-[0_0_20px_rgba(219,24,48,0.45)]"></span>
+                        <div class="inline-flex items-center rounded-3xl bg-white px-5 py-3 mb-8 shadow-lg shadow-black/20">
+                            <img src="{{ asset('images/logo-medica-mia.png') }}" alt="Médica MIA" class="h-8 w-auto">
                         </div>
                         <h1 class="text-4xl sm:text-5xl font-black leading-tight mb-4">Control de Accesos Hospitalarios</h1>
                         <p class="max-w-xl text-sm text-slate-200/90 leading-relaxed">Bienvenido al sistema de registro de visitas. Accede con tus credenciales para administrar áreas, autorizaciones y seguimiento de visitas en Clínica Médica MIA.</p>

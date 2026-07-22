@@ -17,6 +17,8 @@ class User extends Authenticatable
         'area',
         'es_admin',
         'acceso_reportes',
+        'acceso_vinculacion',
+        'es_admin_cafeteria',
     ];
 
     protected $hidden = [
@@ -24,11 +26,12 @@ class User extends Authenticatable
         'remember_token',
     ];
 
-
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
         'es_admin' => 'boolean',
         'acceso_reportes' => 'boolean',
+        'acceso_vinculacion' => 'boolean',
+        'es_admin_cafeteria' => 'boolean',
     ];
 }

@@ -6,6 +6,7 @@
         'hospital' => 'Hospital',
         'consultorios' => 'Torre de Consultorios',
         'cafeteria' => 'Cafetería',
+        'vinculacion' => 'Vinculación',
     ];
 @endphp
 
@@ -57,6 +58,12 @@
                             @endif
                             @if ($usuario->acceso_reportes)
                                 <span class="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-300">Reportes</span>
+                            @endif
+                            @if ($usuario->acceso_vinculacion)
+                                <span class="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-semibold text-amber-300">Vinculación</span>
+                            @endif
+                            @if ($usuario->es_admin_cafeteria)
+                                <span class="rounded-full bg-orange-500/15 px-3 py-1 text-xs font-semibold text-orange-300">Resumen Cafetería</span>
                             @endif
                         </div>
 
@@ -123,7 +130,15 @@
                     </label>
                     <label class="flex items-center gap-3 text-sm text-slate-300">
                         <input type="checkbox" name="acceso_reportes" value="1" checked class="h-4 w-4 rounded border-white/20 bg-white/5 text-[#4978eb] focus:ring-[#4978eb]/40" />
-                        Permitir acceso a Reportes
+                        Permitir acceso a reportes
+                    </label>
+                    <label class="flex items-center gap-3 text-sm text-slate-300">
+                        <input type="checkbox" name="acceso_vinculacion" value="1" class="h-4 w-4 rounded border-white/20 bg-white/5 text-[#4978eb] focus:ring-[#4978eb]/40" />
+                        Permitir acceso a cortesias
+                    </label>
+                    <label class="flex items-center gap-3 text-sm text-slate-300">
+                        <input type="checkbox" name="es_admin_cafeteria" value="1" class="h-4 w-4 rounded border-white/20 bg-white/5 text-[#4978eb] focus:ring-[#4978eb]/40" />
+                        Permitir ver el resumen de Cafetería (solo lectura)
                     </label>
                 </div>
 
@@ -133,6 +148,12 @@
             </form>
         </div>
 
+    </div>
+
+    <div class="mt-6 rounded-2xl border border-white/10 bg-[#081536] overflow-x-auto">
+        <h2 class="text-sm font-semibold uppercase tracking-[0.2em] text-slate-400 p-6 pb-0">Bitácora de actividad</h2>
+
+        @include('bitacora._tabla', ['bitacora' => $bitacora])
     </div>
 </div>
 @endsection

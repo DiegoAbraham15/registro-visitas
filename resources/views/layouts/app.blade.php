@@ -6,10 +6,6 @@
     <title>Control de Visitas</title>
     @vite('resources/css/app.css')
     <script>
-        // Algunos navegadores restauran la página desde su caché de "atrás/adelante" (bfcache)
-        // mostrando el contenido tal cual quedó, sin volver a pedírselo al servidor, aunque la
-        // sesión ya se haya cerrado. Si detectamos que la página viene de ese caché, forzamos
-        // una recarga real para que el servidor vuelva a validar la sesión.
         window.addEventListener('pageshow', function (event) {
             if (event.persisted) {
                 window.location.reload();
@@ -17,8 +13,6 @@
         });
     </script>
     <style>
-        /* Los <option> de un <select> ignoran el fondo translúcido de Tailwind y el navegador
-           los pinta con su blanco por defecto; sin esto, el texto blanco queda ilegible. */
         select { color-scheme: dark; }
         select option { background-color: #0b1531; color: #ffffff; }
     </style>
@@ -31,13 +25,27 @@
         if (auth()->user()?->acceso_reportes) {
             $navItems[] = ['href' => '/reportes-graficos', 'label' => 'Reportes Diarios', 'icon' => 'chart'];
         }
+        if (auth()->user()?->area === 'vinculacion' || auth()->user()?->acceso_vinculacion || auth()->user()?->es_admin) {
+            $navItems[] = ['href' => '/vinculacion/dashboard', 'label' => 'Vinculación', 'icon' => 'clipboard'];
+            $navItems[] = ['href' => '/vinculacion/menus', 'label' => 'Menú semanal', 'icon' => 'menu'];
+        }
+        if (auth()->user()?->es_admin_cafeteria || auth()->user()?->es_admin) {
+            $navItems[] = ['href' => '/cafeteria/resumen', 'label' => 'Resumen Cafetería', 'icon' => 'chart'];
+        }
         if (auth()->user()?->es_admin) {
+            $navItems[] = ['href' => '/bitacora', 'label' => 'Bitácora', 'icon' => 'clipboard'];
             $navItems[] = ['href' => '/usuarios', 'label' => 'Usuarios', 'icon' => 'users'];
+            $navItems[] = ['href' => '/catalogos', 'label' => 'Habitaciones y Áreas', 'icon' => 'building'];
+            $navItems[] = ['href' => '/medicos', 'label' => 'Médicos', 'icon' => 'medico'];
         }
         $icons = [
             'grid' => '<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75h6v6h-6v-6Zm10.5 0h6v6h-6v-6Zm-10.5 10.5h6v6h-6v-6Zm10.5 0h6v6h-6v-6Z" />',
             'chart' => '<path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18M8.25 17.25v-6M13.5 17.25V6.75M18.75 17.25v-10.5" />',
             'users' => '<path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />',
+            'menu' => '<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5" />',
+            'clipboard' => '<path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H6a2.25 2.25 0 0 1-2.25-2.25V6a2.25 2.25 0 0 1 2.25-2.25h3.879a1.5 1.5 0 0 1 1.06.44l1.121 1.12a1.5 1.5 0 0 0 1.06.44H18a2.25 2.25 0 0 1 2.25 2.25v9a2.25 2.25 0 0 1-2.25 2.25Z" />',
+            'building' => '<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 21h16.5M4.5 3h9a.75.75 0 0 1 .75.75V21H4.5V3.75A.75.75 0 0 1 5.25 3ZM15 10.5h3.75a.75.75 0 0 1 .75.75V21h-4.5v-10.5ZM7.5 6.75h1.5m-1.5 3.75h1.5m-1.5 3.75h1.5m3-7.5h1.5m-1.5 3.75h1.5m-1.5 3.75h1.5" />',
+            'medico' => '<path stroke-linecap="round" stroke-linejoin="round" d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />',
         ];
         $currentPath = '/' . ltrim(request()->path(), '/');
     @endphp
@@ -46,8 +54,8 @@
         <header class="sticky top-0 z-30 border-b border-white/10 bg-[#081536]/95 backdrop-blur shadow-[0_0_35px_rgba(0,0,0,0.25)]">
             <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
                 <div class="flex items-center gap-3">
-                    <div class="inline-flex h-12 w-12 items-center justify-center rounded-3xl bg-gradient-to-br from-[#4978eb] to-[#2c4fb0] text-xl font-black tracking-tight text-white ring-1 ring-white/10 shadow-lg shadow-[#4978eb]/20">
-                    
+                    <div class="flex h-12 items-center rounded-2xl bg-white px-3 shadow-lg shadow-black/20 ring-1 ring-white/10">
+                        <img src="{{ asset('images/logo-medica-mia.png') }}" alt="Médica MIA" class="h-6 w-auto">
                     </div>
                     <div>
                         <p class="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">Médica MIA</p>

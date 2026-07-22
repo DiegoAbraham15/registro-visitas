@@ -27,38 +27,21 @@ class UserFactory extends Factory
         return [
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
-            'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
-            /* @chisel-2fa */
-            'two_factor_secret' => null,
-            'two_factor_recovery_codes' => null,
-            'two_factor_confirmed_at' => null,
-            /* @end-chisel-2fa */
+            // 'area' es obligatoria (enum sin default, ver create_users_table);
+            // es_admin/acceso_reportes ya tienen default en su propia migración.
+            'area' => fake()->randomElement(['hospital', 'consultorios', 'cafeteria', 'vinculacion']),
         ];
     }
 
     /**
-     * Indicate that the model's email address should be unverified.
+     * Usuario administrador (ve todas las áreas, gestiona usuarios).
      */
-    public function unverified(): static
+    public function admin(): static
     {
         return $this->state(fn (array $attributes) => [
-            'email_verified_at' => null,
+            'es_admin' => true,
         ]);
-    }
-
-    /**
-     * Indicate that the model has two-factor authentication configured.
-     */
-    public function withTwoFactor(): static
-    {
-        /* @chisel-2fa */
-        return $this->state(fn (array $attributes) => [
-            'two_factor_secret' => encrypt('secret'),
-            'two_factor_recovery_codes' => encrypt(json_encode(['recovery-code-1'])),
-            'two_factor_confirmed_at' => now(),
-        ]);
-        /* @end-chisel-2fa */
     }
 }
