@@ -65,6 +65,12 @@
                             @if ($usuario->es_admin_cafeteria)
                                 <span class="rounded-full bg-orange-500/15 px-3 py-1 text-xs font-semibold text-orange-300">Resumen Cafetería</span>
                             @endif
+                            @if ($usuario->acceso_catalogos)
+                                <span class="rounded-full bg-sky-500/15 px-3 py-1 text-xs font-semibold text-sky-300">Habitaciones y Áreas</span>
+                            @endif
+                            @if ($usuario->acceso_medicos)
+                                <span class="rounded-full bg-teal-500/15 px-3 py-1 text-xs font-semibold text-teal-300">Médicos (Torre)</span>
+                            @endif
                         </div>
 
                         <div class="flex items-center gap-2 pt-2 border-t border-white/10">
@@ -139,6 +145,14 @@
                     <label class="flex items-center gap-3 text-sm text-slate-300">
                         <input type="checkbox" name="es_admin_cafeteria" value="1" class="h-4 w-4 rounded border-white/20 bg-white/5 text-[#4978eb] focus:ring-[#4978eb]/40" />
                         Permitir ver el resumen de Cafetería (solo lectura)
+                    </label>
+                    <label class="flex items-center gap-3 text-sm text-slate-300">
+                        <input type="checkbox" name="acceso_catalogos" value="1" class="h-4 w-4 rounded border-white/20 bg-white/5 text-[#4978eb] focus:ring-[#4978eb]/40" />
+                        Permitir administrar Habitaciones y Áreas (Hospital)
+                    </label>
+                    <label class="flex items-center gap-3 text-sm text-slate-300">
+                        <input type="checkbox" name="acceso_medicos" value="1" class="h-4 w-4 rounded border-white/20 bg-white/5 text-[#4978eb] focus:ring-[#4978eb]/40" />
+                        Permitir administrar Médicos (Torre de Consultorios)
                     </label>
                 </div>
 

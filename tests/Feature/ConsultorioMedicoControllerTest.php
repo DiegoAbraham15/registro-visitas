@@ -37,6 +37,27 @@ class ConsultorioMedicoControllerTest extends TestCase
         $this->post('/medicos', [])->assertForbidden();
     }
 
+    public function test_user_with_acceso_medicos_can_manage_medicos_without_being_admin(): void
+    {
+        $user = User::factory()->create(['acceso_medicos' => true]);
+        $this->actingAs($user);
+
+        $this->get('/medicos')->assertOk();
+        $response = $this->post('/medicos', ['consultorio' => '319', 'nombre_medico' => 'VIOLETA LUNA GARCIA']);
+        $response->assertRedirect('/medicos');
+        $this->assertDatabaseHas('consultorios_medicos', ['consultorio' => '319', 'nombre_medico' => 'VIOLETA LUNA GARCIA']);
+    }
+
+    public function test_acceso_catalogos_alone_does_not_grant_access_to_medicos(): void
+    {
+        // Habitaciones/Áreas es del Hospital, Médicos es de la Torre — son
+        // permisos separados a propósito; uno no debe destrabar el otro.
+        $user = User::factory()->create(['acceso_catalogos' => true, 'acceso_medicos' => false]);
+        $this->actingAs($user);
+
+        $this->get('/medicos')->assertForbidden();
+    }
+
     public function test_admin_can_view_the_medicos_page(): void
     {
         $admin = User::factory()->admin()->create();

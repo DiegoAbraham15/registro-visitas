@@ -2,6 +2,8 @@
 
 use App\Http\Middleware\ControlArea;
 use App\Http\Middleware\EnsureAdminCafeteria;
+use App\Http\Middleware\EnsureCanManageCatalogos;
+use App\Http\Middleware\EnsureCanManageMedicos;
 use App\Http\Middleware\EnsureIsAdmin;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -32,6 +34,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'area' => ControlArea::class,
             'admin' => EnsureIsAdmin::class,
             'admin.cafeteria' => EnsureAdminCafeteria::class,
+            'catalogos' => EnsureCanManageCatalogos::class,
+            'medicos' => EnsureCanManageMedicos::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

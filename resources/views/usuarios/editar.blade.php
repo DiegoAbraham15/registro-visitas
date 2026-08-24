@@ -80,6 +80,16 @@
                            class="h-4 w-4 rounded border-white/20 bg-white/5 text-[#4978eb] focus:ring-[#4978eb]/40" />
                     Permitir ver el resumen de Cafetería (solo lectura)
                 </label>
+                <label class="flex items-center gap-3 text-sm text-slate-300">
+                    <input type="checkbox" name="acceso_catalogos" value="1" {{ old('acceso_catalogos', $usuario->acceso_catalogos) ? 'checked' : '' }}
+                           class="h-4 w-4 rounded border-white/20 bg-white/5 text-[#4978eb] focus:ring-[#4978eb]/40" />
+                    Permitir administrar Habitaciones y Áreas (Hospital)
+                </label>
+                <label class="flex items-center gap-3 text-sm text-slate-300">
+                    <input type="checkbox" name="acceso_medicos" value="1" {{ old('acceso_medicos', $usuario->acceso_medicos) ? 'checked' : '' }}
+                           class="h-4 w-4 rounded border-white/20 bg-white/5 text-[#4978eb] focus:ring-[#4978eb]/40" />
+                    Permitir administrar Médicos (Torre de Consultorios)
+                </label>
             </div>
 
             <div class="flex items-center gap-3 pt-2">

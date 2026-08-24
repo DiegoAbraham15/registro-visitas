@@ -8,11 +8,13 @@ use App\Http\Controllers\ConsultorioMedicoController;
 use App\Http\Controllers\MenuController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VisitaController;
+use App\Support\ReporteExcelExporter;
 use App\Support\VisitaConsultas;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 // 1. Redirección de la raíz al login de forma directa por URL
 Route::get('/', function () {
@@ -113,7 +115,7 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/visitas/{id}', [VisitaController::class, 'destroy']);
 });
 
-// --- GESTIÓN DE USUARIOS (solo administradores) ---
+// --- GESTIÓN DE USUARIOS (solo administradores completos) ---
 Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/bitacora', [BitacoraController::class, 'index']);
     Route::get('/usuarios', [UserController::class, 'index']);
@@ -121,7 +123,10 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::get('/usuarios/{id}/editar', [UserController::class, 'edit']);
     Route::put('/usuarios/{id}', [UserController::class, 'update']);
     Route::delete('/usuarios/{id}', [UserController::class, 'destroy']);
+});
 
+// --- CATÁLOGOS DEL HOSPITAL: Habitaciones y Áreas (admins o con acceso_catalogos) ---
+Route::middleware(['auth', 'catalogos'])->group(function () {
     Route::get('/catalogos', [CatalogoController::class, 'index']);
     Route::post('/catalogos/habitaciones', [CatalogoController::class, 'storeHabitacion']);
     Route::put('/catalogos/habitaciones/{id}', [CatalogoController::class, 'updateHabitacion']);
@@ -129,7 +134,10 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::post('/catalogos/areas', [CatalogoController::class, 'storeArea']);
     Route::put('/catalogos/areas/{id}', [CatalogoController::class, 'updateArea']);
     Route::delete('/catalogos/areas/{id}', [CatalogoController::class, 'destroyArea']);
+});
 
+// --- MÉDICOS DE LA TORRE DE CONSULTORIOS (admins o con acceso_medicos, permiso aparte del Hospital) ---
+Route::middleware(['auth', 'medicos'])->group(function () {
     Route::get('/medicos', [ConsultorioMedicoController::class, 'index']);
     Route::post('/medicos', [ConsultorioMedicoController::class, 'store']);
     Route::put('/medicos/{id}', [ConsultorioMedicoController::class, 'update']);
@@ -226,4 +234,25 @@ Route::middleware(['auth'])->get('/reportes-graficos/csv', function (Request $re
 
         fclose($salida);
     }, $nombreArchivo, ['Content-Type' => 'text/csv']);
+});
+
+// --- REPORTE EN EXCEL (.xlsx real, con la foto de cada visitante y el médico de Torre) ---
+Route::middleware(['auth'])->get('/reportes-graficos/excel', function (Request $request) {
+    $usuario = Auth::user();
+
+    if (! $usuario->acceso_reportes) {
+        abort(403, 'No tienes acceso a los reportes.');
+    }
+
+    $datos = VisitaConsultas::datosReporte($usuario, $request->query('periodo'));
+    $nombreArchivo = 'reporte-visitas-'.$datos['periodo'].'-'.now()->format('Y-m-d').'.xlsx';
+
+    $spreadsheet = ReporteExcelExporter::generar($datos);
+    $writer = new Xlsx($spreadsheet);
+
+    return response()->streamDownload(function () use ($writer) {
+        $writer->save('php://output');
+    }, $nombreArchivo, [
+        'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ]);
 });

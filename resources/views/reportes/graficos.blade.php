@@ -42,8 +42,9 @@
                 Descargar PDF
             </a>
 
-            <a href="/reportes-graficos/csv?periodo={{ $periodo }}"
-               class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-[#4978eb]/50 hover:bg-[#4978eb]/10">
+            <a href="/reportes-graficos/excel?periodo={{ $periodo }}"
+               class="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-[#4978eb]/50 hover:bg-[#4978eb]/10"
+               title="Excel con enlace a la foto de cada visitante y el médico de Torre de Consultorios">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="h-3.5 w-3.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
                 </svg>
@@ -107,16 +108,6 @@
                     <h2 class="text-lg font-semibold text-white mb-4">Visitas por Piso de Habitación</h2>
                     <div class="relative h-72">
                         <canvas id="graficoPisosFamiliar"></canvas>
-                    </div>
-                </div>
-            @endif
-
-            @if ($porPisoTorre->isNotEmpty())
-                <div class="rounded-2xl border border-white/10 bg-[#081536] p-6">
-                    <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 mb-1">Representantes médicos</p>
-                    <h2 class="text-lg font-semibold text-white mb-4">Visitas por Piso de Consultorio</h2>
-                    <div class="relative h-72">
-                        <canvas id="graficoPisosTorre"></canvas>
                     </div>
                 </div>
             @endif
@@ -347,7 +338,7 @@
         }
     });
 
-    // Barra horizontal reutilizable para los desgloses "visitas por piso"
+    // Barra horizontal reutilizable para los desgloses "visitas por piso"s
     function graficoPorPiso(canvasId, labels, data, seriesLabel) {
         new Chart(document.getElementById(canvasId), {
             type: 'bar',

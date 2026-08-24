@@ -4,6 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use Tests\Concerns\CreaVisitas;
 use Tests\TestCase;
 
@@ -148,8 +151,8 @@ class ReportesTest extends TestCase
 
     public function test_csv_route_forces_entrada_and_salida_to_text_so_excel_keeps_the_time(): void
     {
-        $entrada = \Illuminate\Support\Carbon::create(2026, 7, 16, 14, 30);
-        $salida = \Illuminate\Support\Carbon::create(2026, 7, 16, 16, 45);
+        $entrada = Carbon::create(2026, 7, 16, 14, 30);
+        $salida = Carbon::create(2026, 7, 16, 16, 45);
         $this->creaVisitaFamiliar([
             'id_edificio' => 1,
             'estado' => 'finalizada',
@@ -181,5 +184,115 @@ class ReportesTest extends TestCase
         // nunca como una fórmula que Excel/Sheets pueda evaluar al abrirla.
         $this->assertStringContainsString('\'=HYPERLINK', $contenido);
         $this->assertStringNotContainsString(',=HYPERLINK', $contenido);
+    }
+
+    /**
+     * Carga el .xlsx devuelto por streamedContent() en un archivo temporal
+     * para poder leerlo con PhpSpreadsheet (streamedContent() solo da los
+     * bytes crudos; el formato .xlsx es un zip, no se puede inspeccionar
+     * como texto).
+     */
+    private function cargarHojaDesdeRespuesta(string $bytesXlsx): Worksheet
+    {
+        $rutaTemporal = tempnam(sys_get_temp_dir(), 'test_xlsx_').'.xlsx';
+        file_put_contents($rutaTemporal, $bytesXlsx);
+
+        $hoja = IOFactory::load($rutaTemporal)->getActiveSheet();
+        unlink($rutaTemporal);
+
+        return $hoja;
+    }
+
+    public function test_excel_route_is_forbidden_without_acceso_reportes(): void
+    {
+        $user = User::factory()->create(['acceso_reportes' => false]);
+        $this->actingAs($user);
+
+        $this->get('/reportes-graficos/excel')->assertForbidden();
+    }
+
+    public function test_excel_route_downloads_an_xlsx_file(): void
+    {
+        $this->creaVisitaFamiliar(['id_edificio' => 1], ['nombre' => 'Ana Detalle']);
+
+        $user = User::factory()->create(['acceso_reportes' => true, 'area' => 'hospital']);
+        $this->actingAs($user);
+
+        $response = $this->get('/reportes-graficos/excel?periodo=todo');
+
+        $response->assertOk();
+        $this->assertStringContainsString(
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            $response->headers->get('content-type')
+        );
+        $this->assertStringContainsString(
+            'reporte-visitas-todo-',
+            $response->headers->get('content-disposition')
+        );
+
+        $hoja = $this->cargarHojaDesdeRespuesta($response->streamedContent());
+        $this->assertSame('Ana Detalle', $hoja->getCell('C3')->getValue());
+    }
+
+    public function test_excel_route_includes_the_doctor_name_for_torre_visits(): void
+    {
+        $this->creaVisitaTorre(['id_edificio' => 2], ['nombre' => 'Visitante Torre', 'nombre_medico' => 'DR. JUAN PEREZ']);
+
+        $admin = User::factory()->admin()->create(['acceso_reportes' => true]);
+        $this->actingAs($admin);
+
+        $response = $this->get('/reportes-graficos/excel?periodo=todo');
+
+        $hoja = $this->cargarHojaDesdeRespuesta($response->streamedContent());
+        $this->assertSame('Médico', $hoja->getCell('F2')->getValue());
+        $this->assertSame('DR. JUAN PEREZ', $hoja->getCell('F3')->getValue());
+    }
+
+    public function test_excel_route_leaves_medico_blank_for_hospital_visits(): void
+    {
+        $this->creaVisitaFamiliar(['id_edificio' => 1], ['nombre' => 'Ana Detalle']);
+
+        $user = User::factory()->create(['acceso_reportes' => true, 'area' => 'hospital']);
+        $this->actingAs($user);
+
+        $response = $this->get('/reportes-graficos/excel?periodo=todo');
+
+        $hoja = $this->cargarHojaDesdeRespuesta($response->streamedContent());
+        $this->assertSame('', (string) $hoja->getCell('F3')->getValue());
+    }
+
+    public function test_excel_route_links_to_the_visitors_photo_instead_of_embedding_it(): void
+    {
+        // Se enlaza en vez de embeberse: descargar cada foto por HTTP al generar
+        // el archivo dejaba la petición colgada cuando el servidor de fotos de la
+        // app móvil está lento o inalcanzable — un enlace es instantáneo.
+        config(['app.mobile_uploads_url' => 'http://fake-mobile-app.test']);
+
+        $this->creaVisitaFamiliar(['id_edificio' => 1], ['nombre' => 'Ana Detalle', 'foto_persona' => '/uploads/ana.png']);
+
+        $user = User::factory()->create(['acceso_reportes' => true, 'area' => 'hospital']);
+        $this->actingAs($user);
+
+        $response = $this->get('/reportes-graficos/excel?periodo=todo');
+
+        $response->assertOk();
+        $hoja = $this->cargarHojaDesdeRespuesta($response->streamedContent());
+        $this->assertSame('Ver foto', $hoja->getCell('B3')->getValue());
+        $this->assertSame('http://fake-mobile-app.test/uploads/ana.png', $hoja->getCell('B3')->getHyperlink()->getUrl());
+        $this->assertCount(0, $hoja->getDrawingCollection());
+    }
+
+    public function test_excel_route_shows_a_dash_when_there_is_no_photo(): void
+    {
+        $this->creaVisitaFamiliar(['id_edificio' => 1], ['nombre' => 'Ana Detalle', 'foto_persona' => null]);
+
+        $user = User::factory()->create(['acceso_reportes' => true, 'area' => 'hospital']);
+        $this->actingAs($user);
+
+        $response = $this->get('/reportes-graficos/excel?periodo=todo');
+
+        $hoja = $this->cargarHojaDesdeRespuesta($response->streamedContent());
+        $this->assertSame('—', $hoja->getCell('B3')->getValue());
+        $this->assertSame('', $hoja->getCell('B3')->getHyperlink()->getUrl());
     }
 }

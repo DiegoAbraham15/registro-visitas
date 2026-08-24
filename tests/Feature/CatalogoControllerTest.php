@@ -49,6 +49,27 @@ class CatalogoControllerTest extends TestCase
         $this->post('/catalogos/areas', [])->assertForbidden();
     }
 
+    public function test_user_with_acceso_catalogos_can_manage_catalogos_without_being_admin(): void
+    {
+        $user = User::factory()->create(['acceso_catalogos' => true]);
+        $this->actingAs($user);
+
+        $this->get('/catalogos')->assertOk();
+        $response = $this->post('/catalogos/habitaciones', ['piso' => 'Piso 2', 'numero' => '224']);
+        $response->assertRedirect('/catalogos');
+        $this->assertDatabaseHas('catalogo_habitaciones', ['piso' => 'Piso 2', 'numero' => '224']);
+    }
+
+    public function test_acceso_medicos_alone_does_not_grant_access_to_catalogos(): void
+    {
+        // Médicos es de la Torre, Habitaciones/Áreas es del Hospital — son
+        // permisos separados a propósito; uno no debe destrabar el otro.
+        $user = User::factory()->create(['acceso_medicos' => true, 'acceso_catalogos' => false]);
+        $this->actingAs($user);
+
+        $this->get('/catalogos')->assertForbidden();
+    }
+
     public function test_admin_can_view_the_catalogos_page(): void
     {
         $admin = User::factory()->admin()->create();

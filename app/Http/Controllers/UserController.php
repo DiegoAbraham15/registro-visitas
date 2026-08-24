@@ -29,6 +29,8 @@ class UserController extends Controller
             'acceso_reportes' => ['nullable', 'boolean'],
             'acceso_vinculacion' => ['nullable', 'boolean'],
             'es_admin_cafeteria' => ['nullable', 'boolean'],
+            'acceso_catalogos' => ['nullable', 'boolean'],
+            'acceso_medicos' => ['nullable', 'boolean'],
         ]);
 
         $usuario = User::create([
@@ -40,6 +42,8 @@ class UserController extends Controller
             'acceso_reportes' => $request->boolean('acceso_reportes'),
             'acceso_vinculacion' => $request->boolean('acceso_vinculacion'),
             'es_admin_cafeteria' => $request->boolean('es_admin_cafeteria'),
+            'acceso_catalogos' => $request->boolean('acceso_catalogos'),
+            'acceso_medicos' => $request->boolean('acceso_medicos'),
         ]);
 
         Bitacora::registrar('usuario.crear', "Creó al usuario {$usuario->name} ({$usuario->email}), área {$usuario->area}.");
@@ -67,6 +71,8 @@ class UserController extends Controller
             'acceso_reportes' => ['nullable', 'boolean'],
             'acceso_vinculacion' => ['nullable', 'boolean'],
             'es_admin_cafeteria' => ['nullable', 'boolean'],
+            'acceso_catalogos' => ['nullable', 'boolean'],
+            'acceso_medicos' => ['nullable', 'boolean'],
         ]);
 
         $usuario->name = $validated['name'];
@@ -76,6 +82,8 @@ class UserController extends Controller
         $usuario->acceso_reportes = $request->boolean('acceso_reportes');
         $usuario->acceso_vinculacion = $request->boolean('acceso_vinculacion');
         $usuario->es_admin_cafeteria = $request->boolean('es_admin_cafeteria');
+        $usuario->acceso_catalogos = $request->boolean('acceso_catalogos');
+        $usuario->acceso_medicos = $request->boolean('acceso_medicos');
 
         if (! empty($validated['password'])) {
             $usuario->password = $validated['password'];

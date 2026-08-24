@@ -35,7 +35,11 @@
         if (auth()->user()?->es_admin) {
             $navItems[] = ['href' => '/bitacora', 'label' => 'Bitácora', 'icon' => 'clipboard'];
             $navItems[] = ['href' => '/usuarios', 'label' => 'Usuarios', 'icon' => 'users'];
+        }
+        if (auth()->user()?->es_admin || auth()->user()?->acceso_catalogos) {
             $navItems[] = ['href' => '/catalogos', 'label' => 'Habitaciones y Áreas', 'icon' => 'building'];
+        }
+        if (auth()->user()?->es_admin || auth()->user()?->acceso_medicos) {
             $navItems[] = ['href' => '/medicos', 'label' => 'Médicos', 'icon' => 'medico'];
         }
         $icons = [

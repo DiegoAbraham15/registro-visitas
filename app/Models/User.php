@@ -19,6 +19,8 @@ class User extends Authenticatable
         'acceso_reportes',
         'acceso_vinculacion',
         'es_admin_cafeteria',
+        'acceso_catalogos',
+        'acceso_medicos',
     ];
 
     protected $hidden = [
@@ -33,5 +35,7 @@ class User extends Authenticatable
         'acceso_reportes' => 'boolean',
         'acceso_vinculacion' => 'boolean',
         'es_admin_cafeteria' => 'boolean',
+        'acceso_catalogos' => 'boolean',
+        'acceso_medicos' => 'boolean',
     ];
 }

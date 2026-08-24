@@ -152,6 +152,80 @@ class UserControllerTest extends TestCase
         ]);
     }
 
+    public function test_admin_can_grant_acceso_catalogos_to_a_user(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $this->actingAs($admin);
+
+        $response = $this->post('/usuarios', [
+            'name' => 'Encargado de Catálogos',
+            'email' => 'catalogos@example.com',
+            'password' => 'password123',
+            'area' => 'hospital',
+            'acceso_catalogos' => '1',
+        ]);
+
+        $response->assertRedirect('/usuarios');
+        $this->assertDatabaseHas('users', [
+            'email' => 'catalogos@example.com',
+            'acceso_catalogos' => true,
+        ]);
+    }
+
+    public function test_admin_can_update_a_users_acceso_catalogos(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $otro = User::factory()->create(['area' => 'hospital', 'acceso_catalogos' => false]);
+        $this->actingAs($admin);
+
+        $this->put("/usuarios/{$otro->id}", [
+            'name' => $otro->name,
+            'email' => $otro->email,
+            'area' => $otro->area,
+            'acceso_catalogos' => '1',
+        ]);
+
+        $this->assertTrue($otro->fresh()->acceso_catalogos);
+    }
+
+    public function test_admin_can_grant_acceso_medicos_to_a_user(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $this->actingAs($admin);
+
+        $response = $this->post('/usuarios', [
+            'name' => 'Encargado de Médicos',
+            'email' => 'medicos@example.com',
+            'password' => 'password123',
+            'area' => 'consultorios',
+            'acceso_medicos' => '1',
+        ]);
+
+        $response->assertRedirect('/usuarios');
+        $this->assertDatabaseHas('users', [
+            'email' => 'medicos@example.com',
+            'acceso_medicos' => true,
+            // Confirma que no se activó el permiso del Hospital de rebote.
+            'acceso_catalogos' => false,
+        ]);
+    }
+
+    public function test_admin_can_update_a_users_acceso_medicos(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $otro = User::factory()->create(['area' => 'consultorios', 'acceso_medicos' => false]);
+        $this->actingAs($admin);
+
+        $this->put("/usuarios/{$otro->id}", [
+            'name' => $otro->name,
+            'email' => $otro->email,
+            'area' => $otro->area,
+            'acceso_medicos' => '1',
+        ]);
+
+        $this->assertTrue($otro->fresh()->acceso_medicos);
+    }
+
     public function test_creating_a_user_requires_unique_email(): void
     {
         $admin = User::factory()->admin()->create();

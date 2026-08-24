@@ -316,7 +316,9 @@ class VisitaConsultas
                 DB::raw('CASE WHEN visita.id_edificio = 2 THEN visita_torre.nombre ELSE COALESCE(visita_familiar.nombre, visita_proveedor.nombre, visita_postulante.nombre, ex_empleados.nombre) END AS nombre_visitante'),
                 DB::raw('CASE WHEN visita.id_edificio = 2 THEN visita_torre.folio ELSE COALESCE(visita_familiar.folio, visita_proveedor.folio, visita_postulante.folio, ex_empleados.folio) END AS folio'),
                 DB::raw('CASE WHEN visita.id_edificio = 2 THEN visita_torre.consultorio ELSE COALESCE(visita_postulante.puesto, visita_proveedor.area_destino, visita_familiar.habitacion, ex_empleados.motivo) END AS detalle'),
-                DB::raw('CASE WHEN visita.id_edificio = 2 THEN visita_torre.piso ELSE COALESCE(visita_proveedor.piso_destino, visita_familiar.piso) END AS piso')
+                DB::raw('CASE WHEN visita.id_edificio = 2 THEN visita_torre.piso ELSE COALESCE(visita_proveedor.piso_destino, visita_familiar.piso) END AS piso'),
+                DB::raw('CASE WHEN visita.id_edificio = 2 THEN visita_torre.foto_persona ELSE COALESCE(visita_familiar.foto_persona, visita_proveedor.foto_persona, visita_postulante.foto_persona, ex_empleados.foto_persona) END AS foto_persona'),
+                'visita_torre.nombre_medico as medico'
             );
         $filtrarPorArea($detalleVisitasQuery);
         $filtrarPeriodo($detalleVisitasQuery);
